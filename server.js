@@ -6,46 +6,49 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mengambil API Key dari Render Environment Variable
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Memori Simpanan Data Sementara
 let latestData = {
-    title: "Non-Farm Payrolls (NFP)",
-    time: "Memuatkan data terkini...",
+    title: "Unemployment Claims",
+    eventDateTime: "10 SEP | 20:30 (GMT+8)",
+    impact: "MEDIUM IMPACT",
+    updatedTime: "Memuatkan...",
     usdBias: "Bullish USD",
     goldSignal: "SELL GOLD",
-    recapBm: "Sistem automasi sedia. Analisis AI akan dipaparkan secara automatik sebaik sahaja data berita dikemas kini."
+    recapBm: "Menunggu masukan data berita..."
 };
 
-// Endpoint untuk Frontend tarik data secara Live
 app.get('/api/live-news', (req, res) => {
     res.json(latestData);
 });
 
-// Endpoint untuk mengemaskini analisis AI secara automatik
 app.post('/api/trigger-analysis', async (req, res) => {
-    const { newsTitle, actual, forecast, previous } = req.body;
+    const { newsTitle, eventDateTime, impact, actual, forecast, previous, fedRemarks } = req.body;
 
     const prompt = `
-    Sebagai pakar analisis fundamental Forex dan Gold (XAU/USD), analisa data berita ini:
+    Sebagai pakar analisis fundamental Forex & Gold (XAU/USD), analisa data berita berikut:
     - Tajuk Berita: ${newsTitle}
-    - Actual: ${actual}
-    - Forecast: ${forecast}
-    - Previous: ${previous}
+    - Tarikh & Masa Acara: ${eventDateTime || 'Tiada'}
+    - Tahap Impak: ${impact || 'HIGH/MEDIUM IMPACT'}
+    - Data Actual: ${actual}
+    - Data Forecast: ${forecast}
+    - Data Previous: ${previous}
+    - Kenyataan Tambahan / Fed Remarks: ${fedRemarks || 'Tiada'}
 
     Tugas:
     1. Tentukan bias USD (Bullish USD / Bearish USD).
-    2. Tentukan implikasi XAU/USD (BUY GOLD / SELL GOLD).
-    3. Tulis ulasan ringkas dan padat dalam Bahasa Melayu santai tentang KENAPA momentum ini berlaku kepada Gold.
+    2. Tentukan implikasi pada Gold (BUY GOLD / SELL GOLD).
+    3. Tulis ulasan Bahasa Melayu santai, padat, dan senang faham.
+       - TERMASUKKAN key point utama daripada data berita.
+       - JIKA ADA kenyataan Fed (contoh: cadangan naikkan/turunkan kadar faedah), WAJIB muatkan kenyataan tersebut di dalam ulasan dan terangkan dampaknya kepada Gold.
 
-    Formatkan jawapan dalam bentuk JSON SAHAJA tanpa teks tambahan:
+    Formatkan jawapan dalam bentuk JSON SAHAJA tanpa sebarang teks markdown/penerangan lain:
     {
       "usdBias": "Bullish USD / Bearish USD",
       "goldSignal": "BUY GOLD / SELL GOLD",
-      "recapBm": "Ulasan Bahasa Melayu..."
+      "recapBm": "Ulasan Bahasa Melayu di sini..."
     }
     `;
 
@@ -58,7 +61,9 @@ app.post('/api/trigger-analysis', async (req, res) => {
             const parsed = JSON.parse(jsonMatch[0]);
             latestData = {
                 title: newsTitle,
-                time: new Date().toLocaleTimeString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }),
+                eventDateTime: eventDateTime || "MASA TIDAK DISET",
+                impact: impact || "MEDIUM IMPACT",
+                updatedTime: new Date().toLocaleTimeString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }),
                 usdBias: parsed.usdBias,
                 goldSignal: parsed.goldSignal,
                 recapBm: parsed.recapBm
