@@ -40,7 +40,7 @@ async function processWithAI(newsItem) {
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
