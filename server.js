@@ -9,10 +9,10 @@ app.use(cors());
 app.use(express.json());
 
 const apiKey = process.env.GEMINI_API_KEY;
-const FMP_API_KEY = process.env.FMP_API_KEY || "";
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// Pangkalan Data Berita Utama
+// Pangkalan Data Berita Utama (Backup & Initial Data)
 let newsDatabase = [
     {
         id: "nfp",
@@ -58,14 +58,16 @@ let newsDatabase = [
 
 let activeNewsId = "nfp";
 
+// Fungsi memproses ulasan AI menggunakan Gemini
 async function processWithAI(newsItem) {
     const prompt = `
     Sebagai pakar analisis fundamental Forex & Gold (XAU/USD), analisa data berita berikut:
-    - Tajuk Berita: ${newsItem.event || newsItem.title}
-    - Tarikh & Masa Acara: ${newsItem.date || newsItem.eventDateTime}
-    - Data Actual: ${newsItem.actual !== undefined ? newsItem.actual : 'Belum keluar'}
-    - Data Forecast: ${newsItem.estimate !== undefined ? newsItem.estimate : 'Tiada'}
-    - Data Previous: ${newsItem.previous !== undefined ? newsItem.previous : 'Tiada'}
+    - Tajuk Berita: ${newsItem.event || newsItem.title || newsItem.name}
+    - Tarikh & Masa Acara: ${newsItem.date || newsItem.eventDateTime || newsItem.time}
+    - Tahap Impak: ${newsItem.impact || 'HIGH/MEDIUM IMPACT'}
+    - Data Actual: ${newsItem.actual !== undefined && newsItem.actual !== null ? newsItem.actual : 'Belum keluar'}
+    - Data Forecast: ${newsItem.forecast !== undefined && newsItem.forecast !== null ? newsItem.forecast : 'Tiada'}
+    - Data Previous: ${newsItem.previous !== undefined && newsItem.previous !== null ? newsItem.previous : 'Tiada'}
 
     Tugas:
     1. Tentukan bias USD (Bullish USD / Bearish USD).
@@ -95,40 +97,54 @@ async function processWithAI(newsItem) {
     return null;
 }
 
+// Fungsi menarik data Kalendar Ekonomi daripada RapidAPI
 async function fetchEconomicCalendar() {
-    if (!FMP_API_KEY) {
-        console.log("FMP_API_KEY belum diset. Menggunakan mod manual.");
+    if (!RAPIDAPI_KEY) {
+        console.log("RAPIDAPI_KEY belum diset di Render. Menggunakan pangkalan data lalai.");
         return;
     }
 
     try {
-        console.log("Menyemak kalendar ekonomi terkini...");
-        const response = await axios.get(`https://financialmodelingprep.com/api/v3/economic_calendar?apikey=${FMP_API_KEY}`, {
+        console.log("Menyemak kalendar ekonomi terkini melalui RapidAPI...");
+        
+        const response = await axios.get('https://economic-calendar.p.rapidapi.com/calendar', {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+                'x-rapidapi-key': RAPIDAPI_KEY,
+                'x-rapidapi-host': 'economic-calendar.p.rapidapi.com'
             }
         });
-        const events = response.data;
 
-        if (Array.isArray(events)) {
-            const relevantEvents = events.filter(e => e.currency === 'USD' && (e.impact === 'High' || e.impact === 'Medium')).slice(0, 5);
+        const events = response.data;
+        const list = Array.isArray(events) ? events : (events.result || events.data || []);
+
+        if (Array.isArray(list) && list.length > 0) {
+            // Tapis berita berkaitan USD sahaja yang berimpak High & Medium
+            const relevantEvents = list.filter(e => {
+                const currency = e.currency || e.country;
+                const impact = (e.impact || e.importance || '').toString().toLowerCase();
+                return (currency === 'USD' || currency === 'US') && (impact.includes('high') || impact.includes('med') || impact === '3' || impact === '2');
+            }).slice(0, 15);
 
             for (const item of relevantEvents) {
-                const targetId = item.event.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const eventName = item.event || item.title || item.name || "Economic Event";
+                const targetId = eventName.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const existing = newsDatabase.find(n => n.id === targetId);
 
                 if (!existing || existing.actual !== String(item.actual)) {
                     const aiResult = await processWithAI(item);
                     
                     if (aiResult) {
+                        const rawImpact = (item.impact || item.importance || 'HIGH').toString().toUpperCase();
+                        const impactLabel = rawImpact.includes('MED') ? "MEDIUM IMPACT" : "HIGH IMPACT";
+
                         const updatedItem = {
                             id: targetId,
-                            title: item.event,
-                            eventDateTime: item.date || "MASA TIDAK DISET",
-                            impact: item.impact ? `${item.impact.toUpperCase()} IMPACT` : "HIGH IMPACT",
-                            actual: item.actual !== null ? String(item.actual) : "-",
-                            forecast: item.estimate !== null ? String(item.estimate) : "-",
-                            previous: item.previous !== null ? String(item.previous) : "-",
+                            title: eventName,
+                            eventDateTime: item.date || item.time || "MASA TIDAK DISET",
+                            impact: impactLabel,
+                            actual: item.actual !== null && item.actual !== undefined ? String(item.actual) : "-",
+                            forecast: item.forecast !== null && item.forecast !== undefined ? String(item.forecast) : "-",
+                            previous: item.previous !== null && item.previous !== undefined ? String(item.previous) : "-",
                             updatedTime: new Date().toLocaleTimeString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }),
                             usdBias: aiResult.usdBias,
                             goldSignal: aiResult.goldSignal,
@@ -147,16 +163,19 @@ async function fetchEconomicCalendar() {
             }
         }
     } catch (err) {
-        console.error("Gagal mengambil data kalendar ekonomi:", err.message);
+        console.error("Gagal mengambil data RapidAPI:", err.message);
     }
 }
 
+// Semakan automatik setiap 5 minit
 cron.schedule('*/5 * * * *', () => {
     fetchEconomicCalendar();
 });
 
+// Semakan pertama semasa mulakan server
 fetchEconomicCalendar();
 
+// Endpoint REST API
 app.get('/api/live-news', (req, res) => {
     const activeEvent = newsDatabase.find(item => item.id === activeNewsId) || newsDatabase[0];
     res.json({
@@ -176,13 +195,14 @@ app.post('/api/select-news', (req, res) => {
 });
 
 app.post('/api/trigger-analysis', async (req, res) => {
-    const { id, newsTitle, eventDateTime, impact, actual, forecast, previous, fedRemarks } = req.body;
+    const { id, newsTitle, eventDateTime, impact, actual, forecast, previous } = req.body;
 
     const mockItem = {
         event: newsTitle,
         date: eventDateTime,
+        impact: impact,
         actual: actual,
-        estimate: forecast,
+        forecast: forecast,
         previous: previous
     };
 
