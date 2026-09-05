@@ -9,22 +9,32 @@ app.use(cors());
 app.use(express.json());
 
 const apiKey = process.env.GEMINI_API_KEY;
-const FMP_API_KEY = process.env.FMP_API_KEY; // Masukkan API Key Kalendar Ekonomi di Render
+const FMP_API_KEY = process.env.FMP_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// Pangkalan Data Berita Utama (Disimpan dalam memori)
-let newsDatabase = [];
-let activeNewsId = "";
+let newsDatabase = [
+    {
+        id: "nfp",
+        title: "Non-Farm Payrolls (NFP)",
+        eventDateTime: "4 SEP | 20:30 (GMT+8)",
+        impact: "HIGH IMPACT",
+        usdBias: "Bullish USD",
+        goldSignal: "SELL GOLD",
+        updatedTime: "4 Sep 2026",
+        recapBm: "Data NFP mencatatkan pertumbuhan penggajian yang kukuh melebihi jangkaan. Ini menguatkan sentimen mata wang USD dan memberi tekanan susutan harga yang ketara ke atas XAU/USD (Gold)."
+    }
+];
 
-// Fungsi memproses ulasan AI menggunakan Gemini
+let activeNewsId = "nfp";
+
 async function processWithAI(newsItem) {
     const prompt = `
     Sebagai pakar analisis fundamental Forex & Gold (XAU/USD), analisa data berita berikut:
-    - Tajuk Berita: ${newsItem.event}
-    - Tarikh & Masa Acara: ${newsItem.date}
-    - Data Actual: ${newsItem.actual !== null ? newsItem.actual : 'Belum keluar'}
-    - Data Forecast: ${newsItem.estimate !== null ? newsItem.estimate : 'Tiada'}
-    - Data Previous: ${newsItem.previous !== null ? newsItem.previous : 'Tiada'}
+    - Tajuk Berita: ${newsItem.event || newsItem.title}
+    - Tarikh & Masa Acara: ${newsItem.date || newsItem.eventDateTime}
+    - Data Actual: ${newsItem.actual !== undefined ? newsItem.actual : 'Belum keluar'}
+    - Data Forecast: ${newsItem.estimate !== undefined ? newsItem.estimate : 'Tiada'}
+    - Data Previous: ${newsItem.previous !== undefined ? newsItem.previous : 'Tiada'}
 
     Tugas:
     1. Tentukan bias USD (Bullish USD / Bearish USD).
@@ -54,47 +64,54 @@ async function processWithAI(newsItem) {
     return null;
 }
 
-// Fungsi menarik data berita secara automatik daripada API Kalendar Ekonomi
 async function fetchEconomicCalendar() {
+    if (!FMP_API_KEY) {
+        console.log("FMP_API_KEY belum diset. Menggunakan mod manual.");
+        return;
+    }
+
     try {
         console.log("Menyemak kalendar ekonomi terkini...");
-        // Mengambil berita USD untuk tempoh semasa
-        const response = await axios.get(`https://financialmodelingprep.com/api/v3/economic_calendar?apikey=${FMP_API_KEY}`);
+        const response = await axios.get(`https://financialmodelingprep.com/api/v3/economic_calendar?apikey=${FMP_API_KEY}`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+            }
+        });
         const events = response.data;
 
-        // Tapis berita penting berimpak tinggi untuk USD (contoh: CPI, NFP, PPI, FOMC)
-        const relevantEvents = events.filter(e => e.currency === 'USD' && (e.impact === 'High' || e.impact === 'MEDIUM')).slice(0, 5);
+        if (Array.isArray(events)) {
+            const relevantEvents = events.filter(e => e.currency === 'USD' && (e.impact === 'High' || e.impact === 'Medium')).slice(0, 5);
 
-        for (const item of relevantEvents) {
-            const targetId = item.event.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const existing = newsDatabase.find(n => n.id === targetId);
+            for (const item of relevantEvents) {
+                const targetId = item.event.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const existing = newsDatabase.find(n => n.id === targetId);
 
-            // Jika berita baharu atau data actual baru sahaja dikeluarkan/dikemas kini
-            if (!existing || existing.actual !== item.actual) {
-                const aiResult = await processWithAI(item);
-                
-                if (aiResult) {
-                    const updatedItem = {
-                        id: targetId,
-                        title: item.event,
-                        eventDateTime: item.date,
-                        impact: item.impact ? `${item.impact.toUpperCase()} IMPACT` : "HIGH IMPACT",
-                        actual: item.actual !== null ? String(item.actual) : "-",
-                        forecast: item.estimate !== null ? String(item.estimate) : "-",
-                        previous: item.previous !== null ? String(item.previous) : "-",
-                        updatedTime: new Date().toLocaleTimeString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }),
-                        usdBias: aiResult.usdBias,
-                        goldSignal: aiResult.goldSignal,
-                        recapBm: aiResult.recapBm
-                    };
+                if (!existing || existing.actual !== String(item.actual)) {
+                    const aiResult = await processWithAI(item);
+                    
+                    if (aiResult) {
+                        const updatedItem = {
+                            id: targetId,
+                            title: item.event,
+                            eventDateTime: item.date || "MASA TIDAK DISET",
+                            impact: item.impact ? `${item.impact.toUpperCase()} IMPACT` : "HIGH IMPACT",
+                            actual: item.actual !== null ? String(item.actual) : "-",
+                            forecast: item.estimate !== null ? String(item.estimate) : "-",
+                            previous: item.previous !== null ? String(item.previous) : "-",
+                            updatedTime: new Date().toLocaleTimeString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }),
+                            usdBias: aiResult.usdBias,
+                            goldSignal: aiResult.goldSignal,
+                            recapBm: aiResult.recapBm
+                        };
 
-                    const index = newsDatabase.findIndex(n => n.id === targetId);
-                    if (index !== -1) {
-                        newsDatabase[index] = updatedItem;
-                    } else {
-                        newsDatabase.unshift(updatedItem);
+                        const index = newsDatabase.findIndex(n => n.id === targetId);
+                        if (index !== -1) {
+                            newsDatabase[index] = updatedItem;
+                        } else {
+                            newsDatabase.unshift(updatedItem);
+                        }
+                        activeNewsId = targetId;
                     }
-                    activeNewsId = targetId;
                 }
             }
         }
@@ -103,26 +120,14 @@ async function fetchEconomicCalendar() {
     }
 }
 
-// Menjalankan penyemakan automatik (Cron Job) setiap 5 minit
 cron.schedule('*/5 * * * *', () => {
     fetchEconomicCalendar();
 });
 
-// Jalankan sekali sebaik sahaja server dinyalakan
 fetchEconomicCalendar();
 
-// API Endpoints untuk Frontend
 app.get('/api/live-news', (req, res) => {
-    const activeEvent = newsDatabase.find(item => item.id === activeNewsId) || newsDatabase[0] || {
-        title: "Menunggu Data...",
-        eventDateTime: "-",
-        impact: "HIGH IMPACT",
-        usdBias: "-",
-        goldSignal: "-",
-        updatedTime: "-",
-        recapBm: "Sistem sedang memuatkan data berita automatik..."
-    };
-
+    const activeEvent = newsDatabase.find(item => item.id === activeNewsId) || newsDatabase[0];
     res.json({
         activeEvent: activeEvent,
         allEvents: newsDatabase
@@ -139,7 +144,50 @@ app.post('/api/select-news', (req, res) => {
     res.status(404).json({ status: "error", message: "Berita tidak ditemui" });
 });
 
+app.post('/api/trigger-analysis', async (req, res) => {
+    const { id, newsTitle, eventDateTime, impact, actual, forecast, previous, fedRemarks } = req.body;
+
+    const mockItem = {
+        event: newsTitle,
+        date: eventDateTime,
+        actual: actual,
+        estimate: forecast,
+        previous: previous
+    };
+
+    const aiResult = await processWithAI(mockItem);
+
+    if (aiResult) {
+        const targetId = id || newsTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const updatedItem = {
+            id: targetId,
+            title: newsTitle,
+            eventDateTime: eventDateTime || "MASA TIDAK DISET",
+            impact: impact || "HIGH IMPACT",
+            actual: actual || "-",
+            forecast: forecast || "-",
+            previous: previous || "-",
+            updatedTime: new Date().toLocaleTimeString('ms-MY', { timeZone: 'Asia/Kuala_Lumpur' }),
+            usdBias: aiResult.usdBias,
+            goldSignal: aiResult.goldSignal,
+            recapBm: aiResult.recapBm
+        };
+
+        const existingIndex = newsDatabase.findIndex(item => item.id === targetId);
+        if (existingIndex !== -1) {
+            newsDatabase[existingIndex] = updatedItem;
+        } else {
+            newsDatabase.unshift(updatedItem);
+        }
+
+        activeNewsId = targetId;
+        return res.json({ status: "success", data: updatedItem });
+    }
+
+    res.status(500).json({ status: "error", message: "Gagal memproses AI" });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server automatik aktif pada port ${PORT}`);
+    console.log(`Server aktif pada port ${PORT}`);
 });
