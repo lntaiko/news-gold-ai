@@ -12,6 +12,7 @@ const apiKey = process.env.GEMINI_API_KEY;
 const FMP_API_KEY = process.env.FMP_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
+// Pangkalan Data Berita Utama
 let newsDatabase = [
     {
         id: "nfp",
@@ -22,6 +23,36 @@ let newsDatabase = [
         goldSignal: "SELL GOLD",
         updatedTime: "4 Sep 2026",
         recapBm: "Data NFP mencatatkan pertumbuhan penggajian yang kukuh melebihi jangkaan. Ini menguatkan sentimen mata wang USD dan memberi tekanan susutan harga yang ketara ke atas XAU/USD (Gold)."
+    },
+    {
+        id: "cpi",
+        title: "Consumer Price Index (CPI)",
+        eventDateTime: "11 SEP | 20:30 (GMT+8)",
+        impact: "HIGH IMPACT",
+        usdBias: "Bearish USD",
+        goldSignal: "BUY GOLD",
+        updatedTime: "Belum Berlangsung",
+        recapBm: "Jangkaan penurunan kadar inflasi boleh memberi tekanan susutan kepada mata wang USD dan memberi ruang lonjakan kepada harga Emas."
+    },
+    {
+        id: "ppi",
+        title: "Producer Price Index (PPI)",
+        eventDateTime: "12 SEP | 20:30 (GMT+8)",
+        impact: "HIGH IMPACT",
+        usdBias: "Bullish USD",
+        goldSignal: "SELL GOLD",
+        updatedTime: "Belum Berlangsung",
+        recapBm: "Indeks harga pengeluar kekal stabil dan menunggu pelepasan data rasmi daripada pihak Fed."
+    },
+    {
+        id: "fomc",
+        title: "FOMC Rate Decision",
+        eventDateTime: "17 SEP | 02:00 (GMT+8)",
+        impact: "HIGH IMPACT",
+        usdBias: "Bearish USD",
+        goldSignal: "BUY GOLD",
+        updatedTime: "Belum Berlangsung",
+        recapBm: "Keputusan kadar faedah Federal Reserve bakal menjadi penentu arah aliran utama pasaran emas bagi suku ke-3."
     }
 ];
 
@@ -50,7 +81,7 @@ async function processWithAI(newsItem) {
     `;
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
