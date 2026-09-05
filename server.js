@@ -8,7 +8,6 @@ app.use(express.json());
 
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 // Pangkalan Data Senarai Berita
 let newsDatabase = [
@@ -54,10 +53,8 @@ let newsDatabase = [
     }
 ];
 
-// Berita aktif semasa yang dipaparkan di Kad Utama
 let activeNewsId = "nfp";
 
-// Endpoint mendapatkan semua senarai berita + berita aktif
 app.get('/api/live-news', (req, res) => {
     const activeEvent = newsDatabase.find(item => item.id === activeNewsId) || newsDatabase[0];
     res.json({
@@ -66,7 +63,6 @@ app.get('/api/live-news', (req, res) => {
     });
 });
 
-// Endpoint untuk tukar berita aktif bila user tekan butang di frontend
 app.post('/api/select-news', (req, res) => {
     const { id } = req.body;
     const found = newsDatabase.find(item => item.id === id);
@@ -77,7 +73,6 @@ app.post('/api/select-news', (req, res) => {
     res.status(404).json({ status: "error", message: "Berita tidak ditemui" });
 });
 
-// Endpoint untuk hantar data berita baru / trigger AI analysis
 app.post('/api/trigger-analysis', async (req, res) => {
     const { id, newsTitle, eventDateTime, impact, actual, forecast, previous, fedRemarks } = req.body;
 
@@ -105,6 +100,8 @@ app.post('/api/trigger-analysis', async (req, res) => {
     `;
 
     try {
+        // Menggunakan model gemini-2.0-flash yang disokong secara meluas
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -124,7 +121,6 @@ app.post('/api/trigger-analysis', async (req, res) => {
                 recapBm: parsed.recapBm
             };
 
-            // Kemaskini dalam database jika wujud, atau tambah jika berita baru
             const existingIndex = newsDatabase.findIndex(item => item.id === targetId);
             if (existingIndex !== -1) {
                 newsDatabase[existingIndex] = updatedItem;
