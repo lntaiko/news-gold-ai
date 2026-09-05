@@ -8,6 +8,7 @@
 </head>
 <body class="bg-gray-950 text-slate-100 p-4 md:p-8 max-w-xl mx-auto font-sans">
 
+    <!-- Header -->
     <header class="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
         <div>
             <h1 class="text-xl font-bold text-blue-500 tracking-wider">NEWSX <span class="text-white">AI</span></h1>
@@ -19,15 +20,17 @@
         </div>
     </header>
 
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-2xl space-y-5">
+    <!-- Kad Berita Utama -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-2xl space-y-5 mb-6">
         <div>
-            <span class="bg-red-500/10 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-red-500/20">
-                HIGH IMPACT EVENT
+            <span id="news-impact" class="bg-amber-500/10 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-500/20">
+                MEDIUM IMPACT EVENT
             </span>
             <h2 id="news-title" class="text-xl font-bold text-white mt-2">Memuatkan...</h2>
-            <p id="news-time" class="text-xs text-gray-500">Masa Kemaskini: -</p>
+            <p id="news-time" class="text-xs text-gray-500">Dikemas kini: -</p>
         </div>
 
+        <!-- Bias & Signal Box -->
         <div class="grid grid-cols-2 gap-3 bg-gray-950 p-4 rounded-xl border border-gray-800/80">
             <div>
                 <p class="text-[10px] text-gray-500 font-bold uppercase mb-1">USD BIAS</p>
@@ -39,6 +42,7 @@
             </div>
         </div>
 
+        <!-- Analisis BM -->
         <div class="border-t border-gray-800/60 pt-4">
             <h3 class="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">Ulasan AI (Bahasa Melayu)</h3>
             <p id="recap-bm" class="text-xs text-gray-300 leading-relaxed bg-gray-800/40 p-3.5 rounded-xl border border-gray-800/50">
@@ -47,8 +51,39 @@
         </div>
     </div>
 
+    <!-- Senarai Berita Lain -->
+    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Berita Lain Bulan Ini</h3>
+    <div class="space-y-3 mb-8">
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-gray-400">MINGGUAN</span>
+                    <h4 class="font-bold text-white text-sm">Unemployment Claims</h4>
+                </div>
+                <p class="text-[10px] text-amber-500 mt-0.5">Medium Impact (USD)</p>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 block mb-0.5">Bullish USD</span>
+                <span class="text-[10px] font-bold text-red-400">Sell Gold</span>
+            </div>
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center justify-between">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-gray-400">11 SEP</span>
+                    <h4 class="font-bold text-white text-sm">Consumer Price Index (CPI)</h4>
+                </div>
+                <p class="text-[10px] text-red-400 mt-0.5">High Impact (USD)</p>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/10 text-red-400 block mb-0.5">Bearish USD</span>
+                <span class="text-[10px] font-bold text-emerald-400">Buy Gold</span>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // MASUKKAN URL BACKEND RENDER ANDA DI SINI
         const BACKEND_URL = "https://news-gold-ai-backend.onrender.com";
 
         async function fetchLiveData() {
@@ -57,6 +92,7 @@
                 const data = await res.json();
 
                 document.getElementById('news-title').innerText = data.title;
+                document.getElementById('news-impact').innerText = data.impact || "MEDIUM IMPACT";
                 document.getElementById('news-time').innerText = "Dikemas kini: " + data.time;
                 document.getElementById('usd-bias').innerText = data.usdBias;
                 document.getElementById('gold-signal').innerText = data.goldSignal;
@@ -66,7 +102,6 @@
             }
         }
 
-        // Semak data baru secara automatik setiap 5 saat
         fetchLiveData();
         setInterval(fetchLiveData, 5000);
     </script>
