@@ -100,8 +100,8 @@ app.post('/api/trigger-analysis', async (req, res) => {
     `;
 
     try {
-        // Menggunakan model gemini-2.0-flash yang disokong secara meluas
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        // Menggunakan model gemini-3.6-flash yang disokong secara meluas
+        const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
