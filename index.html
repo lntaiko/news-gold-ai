@@ -11,16 +11,22 @@
     <!-- Header -->
     <header class="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
         <div>
-            <h1 class="text-xl font-bold text-blue-500 tracking-wider">NEWSX <span class="text-white">AI</span></h1>
+            <div class="flex items-baseline gap-2">
+                <h1 class="text-xl font-bold text-blue-500 tracking-wider">NEWSX <span class="text-white">AI</span></h1>
+                <span class="text-[10px] text-gray-400 font-medium italic">by Faris</span>
+            </div>
             <p class="text-xs text-gray-400">Analisis Impak Berita Real-Time</p>
         </div>
         <div class="flex items-center gap-2">
+            <button onclick="requestNotificationPermission()" class="text-[10px] bg-blue-600/30 border border-blue-500/40 text-blue-300 px-2 py-1 rounded-md hover:bg-blue-600/50">
+                🔔 Notify
+            </button>
             <span class="w-2.5 h-2.5 bg-green-500 rounded-full animate-ping"></span>
             <span class="text-xs text-green-400 font-semibold">LIVE</span>
         </div>
     </header>
 
-    <!-- Kad Berita Utama (Paparan Berita Yang Ditekan) -->
+    <!-- Kad Berita Utama -->
     <div class="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-2xl space-y-5 mb-6">
         <div>
             <span id="news-impact" class="bg-red-500/10 text-red-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-red-500/20">
@@ -58,29 +64,39 @@
         </div>
     </div>
 
-    <!-- Senarai Berita (Boleh Ditekan) -->
+    <!-- Senarai Berita -->
     <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Senarai Berita (Tekan Untuk Papar)</h3>
     <div id="events-container" class="space-y-3 mb-8">
         <p class="text-xs text-gray-500">Memuatkan senarai berita...</p>
     </div>
 
     <script>
-        // MASUKKAN URL RENDER ANDA DI SINI
         const BACKEND_URL = "https://news-gold-ai-backend.onrender.com";
+
+        async function requestNotificationPermission() {
+            if ("Notification" in window) {
+                const permission = await Notification.requestPermission();
+                if (permission === "granted") {
+                    alert("Notifikasi berjaya diaktifkan!");
+                } else {
+                    alert("Sila benarkan notifikasi dalam tetapan iOS Safari.");
+                }
+            } else {
+                alert("Peranti atau penyemak imbas ini tidak menyokong Web Push Notification.");
+            }
+        }
 
         async function fetchLiveData() {
             try {
                 const res = await fetch(`${BACKEND_URL}/api/live-news`);
                 const data = await res.json();
 
-                // 1. Kemaskini Kad Utama
                 const active = data.activeEvent;
                 document.getElementById('news-title').innerText = active.title;
                 document.getElementById('event-datetime').innerText = active.eventDateTime || "";
                 document.getElementById('news-impact').innerText = active.impact || "HIGH IMPACT";
                 document.getElementById('news-time').innerText = "Dikemas kini: " + active.updatedTime;
                 
-                // Tukar warna teks bias/signal
                 const usdElem = document.getElementById('usd-bias');
                 usdElem.innerText = active.usdBias;
                 usdElem.className = active.usdBias.includes("Bullish") ? "text-base font-bold text-blue-400" : "text-base font-bold text-red-400";
@@ -91,7 +107,6 @@
 
                 document.getElementById('recap-bm').innerText = active.recapBm;
 
-                // 2. Kemaskini Senarai Berita Di Bawah (Boleh Ditekan)
                 const container = document.getElementById('events-container');
                 container.innerHTML = "";
 
@@ -131,7 +146,6 @@
             }
         }
 
-        // Fungsi bila mana-mana berita ditekan
         async function selectNews(id) {
             try {
                 await fetch(`${BACKEND_URL}/api/select-news`, {
